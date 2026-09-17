@@ -1,10 +1,10 @@
-"""Command-line interface for dxp-analyzer.
+"""Command-line interface for dxp-analyzer-doc.
 
 Examples::
 
-    dxp-analyzer analyze dashboard.dxp -o out --lang it
-    dxp-analyzer document a.dxp b.dxp -o migration.md
-    dxp-analyzer all *.dxp -o out
+    dxp-analyzer-doc analyze dashboard.dxp -o out --lang it
+    dxp-analyzer-doc document a.dxp b.dxp -o migration.md
+    dxp-analyzer-doc all *.dxp -o out
 """
 
 from __future__ import annotations
@@ -151,8 +151,8 @@ def _safe(name: str) -> str:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="dxp-analyzer", description="Analyze Spotfire .dxp dashboards and assess Power BI migration.")
-    parser.add_argument("--version", action="version", version=f"dxp-analyzer {__version__}")
+    parser = argparse.ArgumentParser(prog="dxp-analyzer-doc", description="Analyze Spotfire .dxp dashboards and assess Power BI migration.")
+    parser.add_argument("--version", action="version", version=f"dxp-analyzer-doc {__version__}")
     sub = parser.add_subparsers(dest="command", required=True)
 
     common_lang = dict(choices=list(LANGUAGES), default="en", help="output language (default: en)")

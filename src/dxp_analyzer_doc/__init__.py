@@ -1,9 +1,9 @@
-"""dxp-analyzer: analyze TIBCO Spotfire ``.dxp`` dashboards and assess their
+"""dxp-analyzer-doc: analyze TIBCO Spotfire ``.dxp`` dashboards and assess their
 migration to Power BI.
 
 Quick start::
 
-    from dxp_analyzer import analyze, assess
+    from dxp_analyzer_doc import analyze, assess
 
     result = analyze("dashboard.dxp")          # structured inventory
     assessment = assess("dashboard.dxp")        # + complexity, effort, mapping

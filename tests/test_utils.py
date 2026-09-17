@@ -1,4 +1,4 @@
-from dxp_analyzer._utils import (
+from dxp_analyzer_doc._utils import (
     base_type,
     clean_name,
     declared_language,

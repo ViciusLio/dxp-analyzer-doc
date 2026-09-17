@@ -1,8 +1,8 @@
 import pytest
 
-from dxp_analyzer import analyze, assess, build_report
-from dxp_analyzer.export import export_result, write_summary
-from dxp_analyzer.migration import DashboardAssessment
+from dxp_analyzer_doc import analyze, assess, build_report
+from dxp_analyzer_doc.export import export_result, write_summary
+from dxp_analyzer_doc.migration import DashboardAssessment
 
 from _sample import make_sample_dxp
 
@@ -58,7 +58,7 @@ def test_build_report_both_languages(sample, lang):
 
 
 def test_cli_output_defaults_to_input_folder(tmp_path):
-    from dxp_analyzer.cli import main
+    from dxp_analyzer_doc.cli import main
     data = tmp_path / "data"
     data.mkdir()
     make_sample_dxp(data / "sample.dxp")

@@ -1,9 +1,9 @@
-# dxp-analyzer
+# dxp-analyzer-doc
 
 Analyze **TIBCO Spotfire `.dxp`** dashboards and assess their **migration to
 Power BI** (with Databricks as the data back-end).
 
-A `.dxp` file is a ZIP archive of XML documents. `dxp-analyzer` walks that
+A `.dxp` file is a ZIP archive of XML documents. `dxp-analyzer-doc` walks that
 structure and produces:
 
 - a **structured inventory** (pages, visuals, IronPython/JavaScript scripts,
@@ -38,13 +38,13 @@ pip install -e ".[xlsx]"    # pulls in openpyxl for .xlsx tables
 
 ```bash
 # Inventory tables + extracted code files
-dxp-analyzer analyze dashboard.dxp -o out --lang en
+dxp-analyzer-doc analyze dashboard.dxp -o out --lang en
 
 # Migration document (Markdown) for one or many dashboards
-dxp-analyzer document a.dxp b.dxp -o migration.md --lang it
+dxp-analyzer-doc document a.dxp b.dxp -o migration.md --lang it
 
 # Both, for every .dxp in a folder
-dxp-analyzer all ./dashboards -o out
+dxp-analyzer-doc all ./dashboards -o out
 ```
 
 `files` accepts `.dxp` files, glob patterns, or directories (all `*.dxp` inside).
@@ -59,7 +59,7 @@ the input folder; pass an absolute `-o` to write anywhere.
 ## Python API
 
 ```python
-from dxp_analyzer import analyze, assess, build_report
+from dxp_analyzer_doc import analyze, assess, build_report
 
 # 1. Structured inventory
 result = analyze("dashboard.dxp")
@@ -77,7 +77,7 @@ md = build_report([a], lang="it")
 Export helpers:
 
 ```python
-from dxp_analyzer.export import export_result, write_summary
+from dxp_analyzer_doc.export import export_result, write_summary
 export_result(result, "out/dashboard", lang="en")
 write_summary([result], "out", lang="en")
 ```
@@ -104,8 +104,8 @@ min/likely/max band). Every coefficient lives in `ComplexityConfig` /
 `EffortConfig` and can be overridden:
 
 ```python
-from dxp_analyzer import ComplexityModel, assess
-from dxp_analyzer.migration.complexity import EffortConfig
+from dxp_analyzer_doc import ComplexityModel, assess
+from dxp_analyzer_doc.migration.complexity import EffortConfig
 
 model = ComplexityModel(effort=EffortConfig(per_data_function=5.0))
 a = assess("dashboard.dxp", model=model)
@@ -113,14 +113,14 @@ a = assess("dashboard.dxp", model=model)
 
 ## Migration rules
 
-The Spotfire→Power BI mapping lives in `dxp_analyzer/migration/rules.py`
+The Spotfire→Power BI mapping lives in `dxp_analyzer_doc/migration/rules.py`
 (bilingual). Each rule is a regex over scripts/expressions/properties plus its
 Power BI and Databricks guidance. Add or tune rules there.
 
 ## Project layout
 
 ```
-src/dxp_analyzer/
+src/dxp_analyzer_doc/
   analyzer.py        # DxpAnalyzer: the .dxp parsing engine
   model.py           # AnalysisResult and its dataclasses
   export.py          # xlsx/csv tables + extracted files
@@ -130,7 +130,7 @@ src/dxp_analyzer/
     complexity.py    # normalized index + effort model
     assessment.py    # DashboardAssessment
     report.py        # Markdown migration document
-  cli.py             # dxp-analyzer command
+  cli.py             # dxp-analyzer-doc command
 legacy/              # original standalone scripts (reference only)
 tests/               # pytest suite + synthetic .dxp
 ```
@@ -147,4 +147,4 @@ the full pipeline in both languages.
 
 ## License
 
-Proprietary — see [LICENSE](LICENSE).
+MIT — see [LICENSE](LICENSE).

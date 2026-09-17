@@ -1,36 +1,47 @@
 [build-system]
-requires = ["setuptools>=68", "wheel"]
+requires = ["setuptools>=77", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "dxp-analyzer"
+name = "dxp-analyzer-doc"
 version = "0.1.0"
 description = "Analyze TIBCO Spotfire .dxp dashboards and assess migration to Power BI"
 readme = "README.md"
 requires-python = ">=3.9"
-license = { text = "Proprietary" }
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [{ name = "Vincenzo Lio" }]
 keywords = ["spotfire", "dxp", "power-bi", "migration", "analysis", "dashboard"]
 classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Operating System :: OS Independent",
     "Topic :: Software Development :: Documentation",
-    "Private :: Do Not Upload",
+    "Topic :: Utilities",
 ]
 dependencies = []
 
 [project.optional-dependencies]
 xlsx = ["openpyxl>=3.0"]
-dev = ["openpyxl>=3.0", "pytest>=7.0"]
+dev = ["openpyxl>=3.0", "pytest>=7.0", "build>=1.0", "twine>=5.0"]
 
 [project.scripts]
-dxp-analyzer = "dxp_analyzer.cli:main"
+dxp-analyzer-doc = "dxp_analyzer_doc.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/"
+Homepage = "https://github.com/ViciusLio/dxp-analyzer-doc"
+Repository = "https://github.com/ViciusLio/dxp-analyzer-doc"
+Issues = "https://github.com/ViciusLio/dxp-analyzer-doc/issues"
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.setuptools.package-data]
-dxp_analyzer = ["py.typed"]
+dxp_analyzer_doc = ["py.typed"]

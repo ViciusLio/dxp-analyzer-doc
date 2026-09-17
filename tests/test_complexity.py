@@ -1,4 +1,4 @@
-from dxp_analyzer.migration.complexity import (
+from dxp_analyzer_doc.migration.complexity import (
     ComplexityModel,
     Features,
     LEVEL_LOW,
