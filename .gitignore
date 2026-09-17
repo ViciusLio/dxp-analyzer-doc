@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+env/
+
+# Test / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Output generati
+/output/
+/out/
+*.xlsx
+*.csv
+!tests/**/*.csv
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# File di lavoro Spotfire (non versionare dati dei clienti)
+*.dxp
+*.sbdf
+*.stdf

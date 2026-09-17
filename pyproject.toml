@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dxp-analyzer"
+version = "0.1.0"
+description = "Analyze TIBCO Spotfire .dxp dashboards and assess migration to Power BI"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "Proprietary" }
+authors = [{ name = "Vincenzo Lio" }]
+keywords = ["spotfire", "dxp", "power-bi", "migration", "analysis", "dashboard"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+    "Topic :: Software Development :: Documentation",
+    "Private :: Do Not Upload",
+]
+dependencies = []
+
+[project.optional-dependencies]
+xlsx = ["openpyxl>=3.0"]
+dev = ["openpyxl>=3.0", "pytest>=7.0"]
+
+[project.scripts]
+dxp-analyzer = "dxp_analyzer.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+dxp_analyzer = ["py.typed"]
