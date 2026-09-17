@@ -18,11 +18,11 @@ except ImportError:
     Workbook = None
 
 
-CARTELLA_BASE = Path(r"C:\ANALISI DXP\MIGRAZIONE  TO PBI")
+CARTELLA_BASE = Path("input")
 
 FILE_DXP = []
 
-CARTELLA_OUTPUT = Path(r"C:\ANALISI DXP\RISULTATI")
+CARTELLA_OUTPUT = Path("output")
 
 ESTRAI_ARCHIVIO_COMPLETO = True
 

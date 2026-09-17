@@ -11,11 +11,11 @@ from datetime import datetime
 from pathlib import Path
 
 
-CARTELLA_DXP = Path(r"C:\ANALISI DXP\MIGRAZIONE TO PBI")
+CARTELLA_DXP = Path("input")
 
 FILE_DXP = []
 
-CARTELLA_DOCUMENTAZIONE = Path(r"C:\ANALISI DXP\DOCUMENTAZIONE")
+CARTELLA_DOCUMENTAZIONE = Path("output")
 
 FILE_DOCUMENTAZIONE = CARTELLA_DOCUMENTAZIONE / "documentazione_migrazione.md"
 
