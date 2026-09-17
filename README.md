@@ -23,10 +23,16 @@ Output language is selectable: **English (default)** or **Italian** (`--lang it`
 ## Install
 
 ```bash
-pip install -e ".[xlsx]"    # xlsx extra pulls in openpyxl for .xlsx output
+pip install -e .            # no dependencies; tables are written as .csv
 ```
 
-Without the `xlsx` extra, tables are written as `.csv`.
+The migration document is always Markdown (`.md`). Tables default to `.csv`
+(`;`-separated, UTF-8-BOM so Excel opens them directly). If you prefer `.xlsx`
+output instead, add the optional extra:
+
+```bash
+pip install -e ".[xlsx]"    # pulls in openpyxl for .xlsx tables
+```
 
 ## Command line
 
