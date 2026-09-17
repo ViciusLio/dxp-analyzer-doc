@@ -1,8 +1,11 @@
+import math
+
 from dxp_analyzer_doc.migration.complexity import (
     ComplexityModel,
     Features,
     LEVEL_LOW,
     LEVEL_VERY_HIGH,
+    ParametricEffortConfig,
     saturate,
 )
 
@@ -46,3 +49,33 @@ def test_config_is_tunable():
     e = model.effort_estimate(Features(data_functions=2))
     # setup (2) + 2 * 10 = 22
     assert e.likely_days == 22.0
+
+
+def test_parametric_effort_matches_formula():
+    cfg = ParametricEffortConfig(base=0.5, score_coeff=0.0,
+                                 log_coeffs={"scripts": 0.5, "queries": 0.7}, round_to=0.01)
+    model = ComplexityModel(parametric_effort=cfg, effort_model="parametric")
+    f = Features(ironpython_scripts=2, custom_queries=3)  # scripts=2, queries=3
+    e = model.effort_estimate(f)
+    expected = 0.5 + 0.5 * math.log1p(2) + 0.7 * math.log1p(3)
+    assert e.likely_days == round(expected, 2)
+    assert any(k == "base" for k, _, _ in e.breakdown)
+    assert e.min_days <= e.likely_days <= e.max_days
+
+
+def test_effort_models_are_selectable_and_differ():
+    f = Features(pages=10, ironpython_scripts=8, ironpython_lines=2000,
+                 data_functions=3, custom_queries=4, non_native_features=5)
+    itemized = ComplexityModel(effort_model="itemized").effort_estimate(f)
+    parametric = ComplexityModel(effort_model="parametric").effort_estimate(f)
+    # both produce positive estimates, via different math
+    assert itemized.likely_days > 0 and parametric.likely_days > 0
+    assert itemized.breakdown != parametric.breakdown
+
+
+def test_parametric_score_term_contributes():
+    heavy = Features(non_native_features=50, non_native_visuals=50, data_functions=20)
+    light = Features()
+    cfg = ParametricEffortConfig(score_coeff=0.1, log_coeffs={})
+    model = ComplexityModel(parametric_effort=cfg, effort_model="parametric")
+    assert model.effort_estimate(heavy).likely_days > model.effort_estimate(light).likely_days

@@ -75,6 +75,8 @@ _DIMENSIONS = {
 
 _EFFORT = {
     "setup": ("Project setup", "Setup progetto"),
+    "base": ("Base", "Base"),
+    "complexity_score": ("Complexity index", "Indice di complessità"),
     "pages": ("Pages", "Pagine"),
     "visuals_native": ("Native visuals", "Visual nativi"),
     "visuals_workaround": ("Workaround visuals", "Visual con workaround"),

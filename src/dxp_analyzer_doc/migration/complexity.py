@@ -8,14 +8,17 @@ model instead:
    dimension can explode the result;
 3. combines them with configurable weights into a **0-100 complexity index**;
 4. derives a **migration effort** estimate (person-days, min / likely / max) from
-   an itemized per-feature cost model.
+   one of two interchangeable models: an ``itemized`` per-feature cost model
+   (default) or a ``parametric`` formula with diminishing returns.
 
-Every coefficient lives in :class:`ComplexityConfig` / :class:`EffortConfig` and
-can be overridden, so the model is tunable without touching the logic.
+Every coefficient lives in :class:`ComplexityConfig`, :class:`EffortConfig` or
+:class:`ParametricEffortConfig` and can be overridden, so the model is tunable
+without touching the logic.
 """
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from typing import Dict, List, Tuple
 
@@ -136,6 +139,37 @@ class EffortConfig:
     round_to: float = 0.5
 
 
+# Effort model machine keys.
+EFFORT_ITEMIZED = "itemized"
+EFFORT_PARAMETRIC = "parametric"
+
+
+@dataclass
+class ParametricEffortConfig:
+    """Top-down parametric effort model (person-days).
+
+    ``effort = base + score_coeff * index + Σ coeff_i * ln(1 + n_i)``
+
+    The ``ln`` (natural log) gives diminishing returns: the 10th script costs
+    less than the 1st. ``log_coeffs`` maps a driver name to its coefficient; a
+    driver with coefficient 0 (or absent) is ignored. Driver names must be keys
+    of :meth:`ComplexityModel._effort_drivers`.
+    """
+
+    base: float = 0.5
+    score_coeff: float = 0.05
+    log_coeffs: Dict[str, float] = field(default_factory=lambda: {
+        "scripts": 0.5,
+        "queries": 0.7,
+        "data_functions": 0.9,
+        "non_native_features": 1.2,
+        "pages": 0.0,
+    })
+    low_factor: float = 0.8
+    high_factor: float = 1.6
+    round_to: float = 0.5
+
+
 @dataclass
 class ComplexityScore:
     index: float                          # 0-100
@@ -153,11 +187,22 @@ class EffortEstimate:
 
 
 class ComplexityModel:
-    """Compute the complexity index and effort estimate for a set of features."""
+    """Compute the complexity index and effort estimate for a set of features.
 
-    def __init__(self, complexity: ComplexityConfig | None = None, effort: EffortConfig | None = None):
+    Two interchangeable effort models are available (``effort_model``):
+
+    - ``"itemized"`` (default): bottom-up sum of per-feature costs; yields a full
+      breakdown table. Configured by :class:`EffortConfig`.
+    - ``"parametric"``: top-down formula ``base + a*index + Σ c_i*ln(1+n_i)`` with
+      diminishing returns. Configured by :class:`ParametricEffortConfig`.
+    """
+
+    def __init__(self, complexity: ComplexityConfig | None = None, effort: EffortConfig | None = None,
+                 parametric_effort: ParametricEffortConfig | None = None, effort_model: str = EFFORT_ITEMIZED):
         self.complexity = complexity or ComplexityConfig()
         self.effort = effort or EffortConfig()
+        self.parametric_effort = parametric_effort or ParametricEffortConfig()
+        self.effort_model = effort_model
 
     # -- complexity -------------------------------------------------------------
 
@@ -186,11 +231,56 @@ class ComplexityModel:
 
     # -- effort -----------------------------------------------------------------
 
-    def _round(self, value: float) -> float:
-        step = self.effort.round_to or 0.5
+    @staticmethod
+    def _round_step(value: float, step: float) -> float:
+        step = step or 0.5
         return round(round(value / step) * step, 2)
 
+    def _round(self, value: float) -> float:
+        return self._round_step(value, self.effort.round_to)
+
+    @staticmethod
+    def _effort_drivers(f: Features) -> Dict[str, int]:
+        """Named counts the effort models can reference."""
+        return {
+            "scripts": f.ironpython_scripts + f.javascript_scripts,
+            "queries": f.custom_queries,
+            "data_functions": f.data_functions,
+            "non_native_features": f.non_native_features,
+            "workaround_features": f.workaround_features,
+            "pages": f.pages,
+            "source_tables": f.source_tables,
+            "calculated_columns": f.calculated_columns,
+        }
+
     def effort_estimate(self, f: Features) -> EffortEstimate:
+        if self.effort_model == EFFORT_PARAMETRIC:
+            return self._effort_parametric(f)
+        return self._effort_itemized(f)
+
+    def _effort_parametric(self, f: Features) -> EffortEstimate:
+        cfg = self.parametric_effort
+        index = self.score(f).index
+        drivers = self._effort_drivers(f)
+        contributions: List[Tuple[str, float, float]] = [
+            ("base", 1, cfg.base),
+            ("complexity_score", index, cfg.score_coeff * index),
+        ]
+        for key, coeff in cfg.log_coeffs.items():
+            if not coeff:
+                continue
+            n = drivers.get(key, 0)
+            contributions.append((key, n, coeff * math.log1p(n)))
+        likely = sum(c for _, _, c in contributions)
+        breakdown = [(k, q, round(c, 2)) for k, q, c in contributions if c > 0 or k == "base"]
+        return EffortEstimate(
+            min_days=self._round_step(likely * cfg.low_factor, cfg.round_to),
+            likely_days=self._round_step(likely, cfg.round_to),
+            max_days=self._round_step(likely * cfg.high_factor, cfg.round_to),
+            breakdown=breakdown,
+        )
+
+    def _effort_itemized(self, f: Features) -> EffortEstimate:
         e = self.effort
         script_count = f.ironpython_scripts + f.javascript_scripts
         script_lines = f.total_script_lines

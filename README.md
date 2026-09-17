@@ -99,16 +99,45 @@ weights into a **0–100 index**:
 
 Levels: `Low ≤ 25`, `Medium ≤ 50`, `High ≤ 75`, `Very high > 75`.
 
-The **effort estimate** is an itemized per-feature cost in person-days (with a
-min/likely/max band). Every coefficient lives in `ComplexityConfig` /
-`EffortConfig` and can be overridden:
+### Effort estimate (two interchangeable models)
+
+The effort is returned in person-days with a min/likely/max band. Two models are
+available, selectable via `effort_model` (or the CLI `--effort-model`):
+
+- **`itemized`** (default) — bottom-up sum of per-feature costs; produces a full
+  breakdown table. Configured by `EffortConfig`.
+- **`parametric`** — top-down formula with diminishing returns, configured by
+  `ParametricEffortConfig`:
+
+  ```
+  effort = base + score_coeff · index + Σ coeff_i · ln(1 + n_i)
+  ```
+
+  where `n_i` are drivers such as scripts, queries, data functions and
+  non-native features. `ln` (natural log) means the 10th script costs less than
+  the 1st. Defaults: `base=0.5`, `score_coeff=0.05`, and coefficients
+  `scripts=0.5, queries=0.7, data_functions=0.9, non_native_features=1.2`.
+
+Every coefficient (both models) is overridable:
 
 ```python
-from dxp_analyzer_doc import ComplexityModel, assess
-from dxp_analyzer_doc.migration.complexity import EffortConfig
+from dxp_analyzer_doc import ComplexityModel, ParametricEffortConfig, EffortConfig, assess
 
+# tune the itemized model
 model = ComplexityModel(effort=EffortConfig(per_data_function=5.0))
+
+# or switch to the parametric formula
+model = ComplexityModel(
+    effort_model="parametric",
+    parametric_effort=ParametricEffortConfig(score_coeff=0.06, log_coeffs={"scripts": 0.5, "queries": 0.7, "data_functions": 1.0}),
+)
 a = assess("dashboard.dxp", model=model)
+```
+
+From the CLI, compare the two on real dashboards:
+
+```bash
+dxp-analyzer-doc document ./dashboards --effort-model parametric
 ```
 
 ## Migration rules

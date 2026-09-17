@@ -19,7 +19,7 @@ from . import __version__
 from .analyzer import DxpAnalyzer
 from .export import Workbook, export_result, write_summary
 from .i18n import LANGUAGES, normalize_lang
-from .migration import DashboardAssessment, build_report
+from .migration import ComplexityModel, DashboardAssessment, build_report
 
 
 def _iter_dxp(paths: List[str]):
@@ -110,6 +110,7 @@ def _cmd_analyze(args) -> int:
 
 def _cmd_document(args) -> int:
     lang = normalize_lang(args.lang)
+    model = ComplexityModel(effort_model=getattr(args, "effort_model", "itemized"))
     assessments = []
     for path in _iter_dxp(args.files):
         if not path.exists():
@@ -123,7 +124,7 @@ def _cmd_document(args) -> int:
         except PermissionError as e:
             print(f"{path.name}: access denied ({e})")
             continue
-        a = DashboardAssessment(result)
+        a = DashboardAssessment(result, model=model)
         assessments.append(a)
         print(f"{path.name}: complexity {a.score.level} ({a.score.index}/100), "
               f"effort ~{a.effort.likely_days} person-days")
@@ -132,7 +133,7 @@ def _cmd_document(args) -> int:
         return 1
     out = _resolve_doc(args.output, _base_dir(args.files))
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(build_report(assessments, lang), encoding="utf-8")
+    out.write_text(build_report(assessments, lang, model=model), encoding="utf-8")
     print(f"output in {out}")
     return 0
 
@@ -140,7 +141,8 @@ def _cmd_document(args) -> int:
 def _cmd_all(args) -> int:
     rc = _cmd_analyze(args)
     out_dir = _resolve_out_dir(args.output, _base_dir(args.files))
-    doc_args = argparse.Namespace(files=args.files, output=str(out_dir / "migration_documentation.md"), lang=args.lang)
+    doc_args = argparse.Namespace(files=args.files, output=str(out_dir / "migration_documentation.md"),
+                                  lang=args.lang, effort_model=getattr(args, "effort_model", "itemized"))
     rc = _cmd_document(doc_args) or rc
     return rc
 
@@ -168,6 +170,8 @@ def build_parser() -> argparse.ArgumentParser:
     p_doc.add_argument("files", nargs="+", help=".dxp files, globs or directories")
     p_doc.add_argument("-o", "--output", default=None, help="output .md file or directory (default: <input folder>/migration_documentation.md)")
     p_doc.add_argument("--lang", **common_lang)
+    p_doc.add_argument("--effort-model", choices=["itemized", "parametric"], default="itemized",
+                       help="effort estimate model (default: itemized)")
     p_doc.set_defaults(func=_cmd_document)
 
     p_all = sub.add_parser("all", help="run analyze + document")
@@ -175,6 +179,8 @@ def build_parser() -> argparse.ArgumentParser:
     p_all.add_argument("-o", "--output", default=None, help="output directory (default: <input folder>/dxp-output)")
     p_all.add_argument("--lang", **common_lang)
     p_all.add_argument("--extract-archive", action="store_true", help="also extract the full .dxp archive")
+    p_all.add_argument("--effort-model", choices=["itemized", "parametric"], default="itemized",
+                       help="effort estimate model (default: itemized)")
     p_all.set_defaults(func=_cmd_all)
 
     return parser

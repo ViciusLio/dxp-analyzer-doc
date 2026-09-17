@@ -18,10 +18,14 @@ from typing import Optional
 from .analyzer import DxpAnalyzer
 from .model import AnalysisResult
 from .migration import (
+    ComplexityConfig,
     ComplexityModel,
     ComplexityScore,
     DashboardAssessment,
+    EffortConfig,
     EffortEstimate,
+    Features,
+    ParametricEffortConfig,
     build_report,
 )
 
@@ -33,7 +37,11 @@ __all__ = [
     "DashboardAssessment",
     "ComplexityModel",
     "ComplexityScore",
+    "ComplexityConfig",
+    "EffortConfig",
+    "ParametricEffortConfig",
     "EffortEstimate",
+    "Features",
     "analyze",
     "assess",
     "build_report",
