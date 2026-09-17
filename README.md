@@ -50,6 +50,12 @@ dxp-analyzer all ./dashboards -o out
 `files` accepts `.dxp` files, glob patterns, or directories (all `*.dxp` inside).
 Add `--extract-archive` to also unpack the raw `.dxp` contents.
 
+**Output location.** By default the output is written **next to the input
+`.dxp` files**, not in the current working directory: `analyze`/`all` create
+`<input folder>/dxp-output/`, and `document` writes
+`<input folder>/migration_documentation.md`. A relative `-o` also resolves under
+the input folder; pass an absolute `-o` to write anywhere.
+
 ## Python API
 
 ```python

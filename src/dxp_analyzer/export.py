@@ -131,7 +131,7 @@ def export_result(result: AnalysisResult, folder, lang: str = "en") -> None:
                  t("hdr.name_in_file", lang), t("hdr.source_resource", lang)],
                 [[s.name, s.language, s.file, s.lines, yes if s.name_in_file else no, s.origin] for s in result.scripts])
     write_table(folder / t("sheet.pages", lang),
-                [t("hdr.number", lang), t("hdr.page", lang), t("hdr.visual_objects", lang), t("hdr.text_area", lang), t("hdr.charts_tables", lang)],
+                [t("hdr.number", lang), t("hdr.page", lang), t("hdr.visual_objects", lang), t("hdr.text_area", lang), t("hdr.charts", lang)],
                 [[i, p.title, len(p.visuals),
                   sum(1 for v in p.visuals if v.type in ("HtmlTextArea", "TextArea")),
                   sum(1 for v in p.visuals if v.type not in ("HtmlTextArea", "TextArea"))] for i, p in enumerate(result.pages, 1)])
@@ -159,6 +159,9 @@ def export_result(result: AnalysisResult, folder, lang: str = "en") -> None:
     write_table(folder / t("sheet.source_tables", lang),
                 [t("hdr.table_name", lang), t("hdr.source_type", lang), t("hdr.database_object", lang), t("hdr.database_object_type", lang), t("hdr.attributes", lang)],
                 [[s.name, t(f"nature.{s.nature}", lang), s.database_object, s.database_object_type, s.details] for s in result.source_tables])
+    write_table(folder / t("sheet.data_tables", lang),
+                [t("hdr.table_name", lang)],
+                [[name] for name in result.data_tables])
     write_table(folder / t("sheet.connections", lang),
                 [t("hdr.context", lang), t("hdr.key", lang), t("hdr.value", lang)],
                 [[c.context, c.key, c.value] for c in result.connections])

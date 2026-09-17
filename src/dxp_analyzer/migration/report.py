@@ -196,6 +196,7 @@ def _dashboard_md(a: DashboardAssessment, lang: str) -> List[str]:
               + f"({round_num(a.effort.min_days)}–{round_num(a.effort.max_days)})")
     md.append("")
     md.append(f"{t('metric.pages', lang)} {c['pages']} · {t('metric.visuals_total', lang)} {c['visuals']} · "
+              f"{t('metric.data_tables', lang)} {len(a.result.data_tables)} · "
               f"{t('metric.scripts_ironpython', lang)} {c['ironpython']} · {t('metric.scripts_javascript', lang)} {c['javascript']} · "
               f"{t('metric.document_properties', lang)} {c['properties']} · {t('metric.custom_queries', lang)} {c['queries']} · "
               f"{t('metric.data_functions', lang)} {c['data_functions']} · {t('metric.calculated_columns', lang)} {c['columns']}")
@@ -252,7 +253,7 @@ def _inventory(a: DashboardAssessment, lang: str) -> List[str]:
     c = a.counts()
     md: List[str] = []
     md += collapsible(f"{t('metric.pages', lang)} ({c['pages']})", table_md(
-        [t("hdr.page", lang), t("hdr.visual_objects", lang), t("hdr.text_area", lang), t("hdr.charts_tables", lang)],
+        [t("hdr.page", lang), t("hdr.visual_objects", lang), t("hdr.text_area", lang), t("hdr.charts", lang)],
         [[p.title, len(p.visuals),
           sum(1 for v in p.visuals if v.type in ("HtmlTextArea", "TextArea")),
           sum(1 for v in p.visuals if v.type not in ("HtmlTextArea", "TextArea"))] for p in a.result.pages], lang))
@@ -266,6 +267,9 @@ def _inventory(a: DashboardAssessment, lang: str) -> List[str]:
     md += collapsible(f"{t('metric.document_properties', lang)} ({c['properties']})", table_md(
         [t("hdr.name", lang), t("hdr.type", lang), t("hdr.used_in", lang)],
         [[p.name, t(f"kind.{p.kind}", lang), p.used_in] for p in a.properties], lang))
+    md += collapsible(f"{t('metric.data_tables', lang)} ({len(a.result.data_tables)})", table_md(
+        [t("hdr.table_name", lang)],
+        [[name] for name in a.result.data_tables], lang))
     md += collapsible(f"{pick(lang, 'Data sources', 'Sorgenti dati')} ({len(a.result.source_tables)})", table_md(
         [t("hdr.table", lang), t("hdr.type", lang), t("hdr.database_object", lang)],
         [[s.name, t(f"nature.{s.nature}", lang), s.database_object] for s in a.result.source_tables], lang))

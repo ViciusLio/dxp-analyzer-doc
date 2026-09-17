@@ -26,6 +26,8 @@ def test_analyze_extracts_expected_content(sample):
     assert "region" in names
     # the embedded IronPython script was found
     assert any(s.language == "IronPython" for s in result.scripts)
+    # the data-model table behind the canvas is counted
+    assert result.data_tables == ["Sales"]
 
 
 def test_assessment_flags_non_native(sample):
@@ -53,6 +55,19 @@ def test_build_report_both_languages(sample, lang):
         assert "Migration synthesis" in md
     else:
         assert "Sintesi di migrazione" in md
+
+
+def test_cli_output_defaults_to_input_folder(tmp_path):
+    from dxp_analyzer.cli import main
+    data = tmp_path / "data"
+    data.mkdir()
+    make_sample_dxp(data / "sample.dxp")
+    rc = main(["all", str(data), "--lang", "en"])
+    assert rc == 0
+    # output lands next to the .dxp files, not in the current working directory
+    assert (data / "dxp-output").is_dir()
+    assert (data / "dxp-output" / "migration_documentation.md").exists()
+    assert (data / "dxp-output" / "sample").is_dir()
 
 
 @pytest.mark.parametrize("lang", ["en", "it"])

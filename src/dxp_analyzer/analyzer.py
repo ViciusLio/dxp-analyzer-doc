@@ -96,6 +96,8 @@ class DxpAnalyzer:
         self._data_function_objects = []
         self._property_objects = []
         self._calc_column_objects = []
+        self._data_table_objects = []
+        self.data_tables = []
         self.bookmarks = 0
         self.pages = []
         self.visual_counts = Counter()
@@ -134,6 +136,7 @@ class DxpAnalyzer:
         self._extract_calculated_columns()
         self._extract_queries_and_connections()
         self._extract_source_tables()
+        self._extract_data_tables()
         return self.result()
 
     def result(self) -> AnalysisResult:
@@ -150,6 +153,7 @@ class DxpAnalyzer:
             calculated_columns=self.calculated_columns,
             queries=self.queries,
             source_tables=self.source_tables,
+            data_tables=self.data_tables,
             connections=self.connections,
             bookmarks=self.bookmarks,
             images=len(self.images),
@@ -469,6 +473,19 @@ class DxpAnalyzer:
                     self._property_objects.append((obj, index))
                 elif last in ("CalculatedColumn", "CalculatedColumnImpl"):
                     self._calc_column_objects.append((obj, index))
+                elif last == "DataTable":
+                    self._data_table_objects.append((obj, index))
+
+    def _extract_data_tables(self):
+        """Collect the distinct data-model tables (DataTable) behind the canvas."""
+        seen = set()
+        for obj, index in self._data_table_objects:
+            name = self._direct_name(obj, index)
+            key = name.lower() if name else id(obj)
+            if key in seen:
+                continue
+            seen.add(key)
+            self.data_tables.append(name or f"Tabella {len(self.data_tables) + 1}")
 
     def _collection_items(self, obj, index, field_name):
         fields = obj.find("Fields")

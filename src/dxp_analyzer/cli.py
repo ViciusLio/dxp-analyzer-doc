@@ -34,6 +34,39 @@ def _iter_dxp(paths: List[str]):
             yield p
 
 
+def _base_dir(files: List[str]) -> Path:
+    """Directory the output defaults to: where the input .dxp files live."""
+    first = files[0]
+    p = Path(first)
+    if p.is_dir():
+        base = p
+    elif any(ch in first for ch in "*?["):
+        base = p.parent
+    else:
+        base = p.parent
+    return base if str(base) not in ("", ".") else Path.cwd()
+
+
+def _resolve_out_dir(output, base: Path) -> Path:
+    """Output directory. Relative paths (and the default) resolve under `base`."""
+    if not output:
+        return base / "dxp-output"
+    p = Path(output)
+    return p if p.is_absolute() else base / p
+
+
+def _resolve_doc(output, base: Path) -> Path:
+    """Output .md file. Relative paths (and the default) resolve under `base`."""
+    if not output:
+        return base / "migration_documentation.md"
+    p = Path(output)
+    if not p.is_absolute():
+        p = base / p
+    if p.suffix.lower() != ".md":
+        p = p / "migration_documentation.md"
+    return p
+
+
 def _analyze_one(path: Path):
     analyzer = DxpAnalyzer(path)
     result = analyzer.analyze()
@@ -42,7 +75,7 @@ def _analyze_one(path: Path):
 
 def _cmd_analyze(args) -> int:
     lang = normalize_lang(args.lang)
-    out = Path(args.output)
+    out = _resolve_out_dir(args.output, _base_dir(args.files))
     out.mkdir(parents=True, exist_ok=True)
     if Workbook is None:
         print("openpyxl not installed: exporting CSV. For .xlsx run: pip install openpyxl")
@@ -97,9 +130,7 @@ def _cmd_document(args) -> int:
     if not assessments:
         print("no dashboard processed")
         return 1
-    out = Path(args.output)
-    if out.suffix.lower() != ".md":
-        out = out / "migration_documentation.md"
+    out = _resolve_doc(args.output, _base_dir(args.files))
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(build_report(assessments, lang), encoding="utf-8")
     print(f"output in {out}")
@@ -108,7 +139,8 @@ def _cmd_document(args) -> int:
 
 def _cmd_all(args) -> int:
     rc = _cmd_analyze(args)
-    doc_args = argparse.Namespace(files=args.files, output=str(Path(args.output) / "migration_documentation.md"), lang=args.lang)
+    out_dir = _resolve_out_dir(args.output, _base_dir(args.files))
+    doc_args = argparse.Namespace(files=args.files, output=str(out_dir / "migration_documentation.md"), lang=args.lang)
     rc = _cmd_document(doc_args) or rc
     return rc
 
@@ -127,20 +159,20 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_an = sub.add_parser("analyze", help="extract inventory tables and code files")
     p_an.add_argument("files", nargs="+", help=".dxp files, globs or directories")
-    p_an.add_argument("-o", "--output", default="dxp-output", help="output directory")
+    p_an.add_argument("-o", "--output", default=None, help="output directory (default: <input folder>/dxp-output; relative paths resolve under the input folder)")
     p_an.add_argument("--lang", **common_lang)
     p_an.add_argument("--extract-archive", action="store_true", help="also extract the full .dxp archive")
     p_an.set_defaults(func=_cmd_analyze)
 
     p_doc = sub.add_parser("document", help="generate the Power BI migration document")
     p_doc.add_argument("files", nargs="+", help=".dxp files, globs or directories")
-    p_doc.add_argument("-o", "--output", default="migration_documentation.md", help="output .md file (or directory)")
+    p_doc.add_argument("-o", "--output", default=None, help="output .md file or directory (default: <input folder>/migration_documentation.md)")
     p_doc.add_argument("--lang", **common_lang)
     p_doc.set_defaults(func=_cmd_document)
 
     p_all = sub.add_parser("all", help="run analyze + document")
     p_all.add_argument("files", nargs="+", help=".dxp files, globs or directories")
-    p_all.add_argument("-o", "--output", default="dxp-output", help="output directory")
+    p_all.add_argument("-o", "--output", default=None, help="output directory (default: <input folder>/dxp-output)")
     p_all.add_argument("--lang", **common_lang)
     p_all.add_argument("--extract-archive", action="store_true", help="also extract the full .dxp archive")
     p_all.set_defaults(func=_cmd_all)

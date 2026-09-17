@@ -60,6 +60,14 @@ ANALYSIS_DOCUMENT = f"""<?xml version="1.0" encoding="utf-8"?>
           </Object>
         </Elements>
       </Field>
+      <Field Name="DataTables">
+        <Elements>
+          <Object>
+            <Type><TypeObject FullTypeName="Spotfire.Dxp.Data.DataTable"/></Type>
+            <Fields><Field Name="Name"><String Value="Sales"/></Field></Fields>
+          </Object>
+        </Elements>
+      </Field>
       <Field Name="Script"><String Id="script1">{SCRIPT}</String></Field>
     </Fields>
   </Object>

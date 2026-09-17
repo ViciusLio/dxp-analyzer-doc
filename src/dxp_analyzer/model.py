@@ -128,6 +128,7 @@ class AnalysisResult:
     calculated_columns: List[CalcColumn] = field(default_factory=list)
     queries: List[Query] = field(default_factory=list)
     source_tables: List[SourceTable] = field(default_factory=list)
+    data_tables: List[str] = field(default_factory=list)
     connections: List[Connection] = field(default_factory=list)
     bookmarks: int = 0
     images: int = 0
@@ -167,7 +168,7 @@ class AnalysisResult:
             ("pages", len(self.pages)),
             ("page_names", ", ".join(p.title for p in self.pages)),
             ("visuals_total", total),
-            ("charts_and_tables", total - text_area),
+            ("chart_visuals", total - text_area),
             ("text_areas", text_area),
             ("document_properties", len(self.document_properties)),
             ("document_properties_user", len(self.document_properties) - len(self.document_properties_standard)),
@@ -177,6 +178,7 @@ class AnalysisResult:
             ("scripts_javascript", len(self.scripts_by_language("JavaScript"))),
             ("data_functions", len(self.data_functions)),
             ("custom_queries", len(self.queries)),
+            ("data_tables", len(self.data_tables)),
             ("database_tables", sum(1 for t in self.source_tables if t.nature == "database_table")),
             ("information_links", sum(1 for t in self.source_tables if t.nature == "information_link")),
             ("calculated_columns", len(self.calculated_columns)),
