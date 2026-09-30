@@ -37,6 +37,10 @@ CATALOG: Dict[str, Dict[str, str]] = {
     # -- property kinds / groups ---------------------------------------------
     "kind.standard": {"en": "standard", "it": "standard"},
     "kind.user": {"en": "user", "it": "utente"},
+    # -- query difficulty levels ---------------------------------------------
+    "qlevel.easy": {"en": "easy", "it": "facile"},
+    "qlevel.medium": {"en": "medium", "it": "media"},
+    "qlevel.complex": {"en": "complex", "it": "complessa"},
     "group.document": {"en": "Document", "it": "Documento"},
     "group.column": {"en": "Column", "it": "Colonna"},
     "group.table": {"en": "Table", "it": "Tabella"},

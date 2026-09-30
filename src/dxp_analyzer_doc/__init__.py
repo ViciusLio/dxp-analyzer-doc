@@ -22,14 +22,14 @@ from .migration import (
     ComplexityModel,
     ComplexityScore,
     DashboardAssessment,
-    EffortConfig,
     EffortEstimate,
     Features,
     ParametricEffortConfig,
+    QueryComplexityConfig,
     build_report,
 )
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 __all__ = [
     "DxpAnalyzer",
@@ -38,8 +38,8 @@ __all__ = [
     "ComplexityModel",
     "ComplexityScore",
     "ComplexityConfig",
-    "EffortConfig",
     "ParametricEffortConfig",
+    "QueryComplexityConfig",
     "EffortEstimate",
     "Features",
     "analyze",

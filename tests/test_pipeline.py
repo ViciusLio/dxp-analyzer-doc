@@ -28,6 +28,8 @@ def test_analyze_extracts_expected_content(sample):
     assert any(s.language == "IronPython" for s in result.scripts)
     # the data-model table behind the canvas is counted
     assert result.data_tables == ["Sales"]
+    # the custom query was extracted
+    assert len(result.queries) == 1
 
 
 def test_assessment_flags_non_native(sample):
@@ -41,6 +43,10 @@ def test_assessment_flags_non_native(sample):
     # score and effort are populated and bounded
     assert 0 <= a.score.index <= 100
     assert a.effort.likely_days > 0
+    # the custom query was classified into a difficulty level
+    assert len(a.queries) == 1
+    assert a.queries[0].level in ("easy", "medium", "complex")
+    assert a.features.custom_queries == 1
 
 
 @pytest.mark.parametrize("lang", ["en", "it"])

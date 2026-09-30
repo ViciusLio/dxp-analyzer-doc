@@ -68,6 +68,13 @@ class PropertyAssessment:
     rules: List[Rule]
 
 
+@dataclass
+class QueryAssessment:
+    name: str
+    level: str      # easy / medium / complex
+    score: float
+
+
 class DashboardAssessment:
     """Assess one dashboard for migration to Power BI."""
 
@@ -79,6 +86,7 @@ class DashboardAssessment:
         self.scripts: List[ScriptAssessment] = []
         self.columns: List[ColumnAssessment] = []
         self.properties: List[PropertyAssessment] = []
+        self.queries: List[QueryAssessment] = []
         self.visual_counts: Counter = Counter(result.visual_counts)
         self.features: Features = Features()
         self.score: ComplexityScore
@@ -178,6 +186,10 @@ class DashboardAssessment:
                     where=table.name,
                 )
 
+        for query in self.result.queries:
+            level, query_score, _ = self.model.classify_query(query.sql)
+            self.queries.append(QueryAssessment(name=query.name, level=level, score=query_score))
+
         self.features = self._build_features()
         self.score = self.model.score(self.features)
         self.effort = self.model.effort_estimate(self.features)
@@ -206,7 +218,9 @@ class DashboardAssessment:
             javascript_scripts=len(javascript),
             javascript_lines=sum(s.lines for s in javascript),
             data_functions=len(self.result.data_functions),
-            custom_queries=len(self.result.queries),
+            queries_easy=sum(1 for q in self.queries if q.level == "easy"),
+            queries_medium=sum(1 for q in self.queries if q.level == "medium"),
+            queries_complex=sum(1 for q in self.queries if q.level == "complex"),
             source_tables=len(self.result.source_tables),
             calculated_columns=len(self.columns),
             adapted_columns=sum(1 for c in self.columns if c.outcome in (WORKAROUND, NON_NATIVE)),

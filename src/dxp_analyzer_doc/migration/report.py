@@ -74,24 +74,15 @@ _DIMENSIONS = {
 }
 
 _EFFORT = {
-    "setup": ("Project setup", "Setup progetto"),
     "base": ("Base", "Base"),
     "complexity_score": ("Complexity index", "Indice di complessità"),
     "pages": ("Pages", "Pagine"),
-    "visuals_native": ("Native visuals", "Visual nativi"),
-    "visuals_workaround": ("Workaround visuals", "Visual con workaround"),
-    "visuals_non_native": ("Non-native visuals", "Visual non nativi"),
-    "text_areas": ("Text areas", "Text area"),
-    "text_area_controls": ("Text area controls", "Controlli text area"),
-    "user_properties": ("User document properties", "Document properties utente"),
     "scripts": ("Scripts", "Script"),
     "data_functions": ("Data functions", "Data function"),
-    "queries": ("Custom queries", "Query personalizzate"),
-    "source_tables": ("Source tables", "Tabelle sorgente"),
-    "calculated_columns": ("Calculated columns", "Colonne calcolate"),
-    "adapted_columns": ("Columns to rework", "Colonne da rilavorare"),
-    "workaround_features": ("Features to adapt", "Funzionalità da adattare"),
     "non_native_features": ("Non-native features", "Funzionalità non native"),
+    "queries_easy": ("Easy queries", "Query facili"),
+    "queries_medium": ("Medium queries", "Query medie"),
+    "queries_complex": ("Complex queries", "Query complesse"),
 }
 
 
@@ -160,6 +151,10 @@ def _pros_cons(assessment: DashboardAssessment, lang: str):
         cons.append(pick(lang,
                         f"{f.data_functions} data function(s) must be rewritten as Databricks notebooks.",
                         f"{f.data_functions} data function da riscrivere come notebook Databricks."))
+    if f.queries_complex:
+        cons.append(pick(lang,
+                        f"{f.queries_complex} complex custom query(ies): the underlying semantic model must be decomposed.",
+                        f"{f.queries_complex} query personalizzate complesse: il modello semantico sottostante va scomposto."))
     if counts["ironpython"] + counts["javascript"]:
         cons.append(pick(lang,
                         f"{counts['ironpython'] + counts['javascript']} script(s) ({f.total_script_lines} lines) to analyze and redesign.",
@@ -203,6 +198,11 @@ def _dashboard_md(a: DashboardAssessment, lang: str) -> List[str]:
               f"{t('metric.document_properties', lang)} {c['properties']} · {t('metric.custom_queries', lang)} {c['queries']} · "
               f"{t('metric.data_functions', lang)} {c['data_functions']} · {t('metric.calculated_columns', lang)} {c['columns']}")
     md.append("")
+    if c["queries"]:
+        fe = a.features
+        md.append(pick(lang, "Custom queries by difficulty", "Query personalizzate per difficoltà")
+                  + f": {t('qlevel.easy', lang)} {fe.queries_easy} · {t('qlevel.medium', lang)} {fe.queries_medium} · {t('qlevel.complex', lang)} {fe.queries_complex}")
+        md.append("")
     md.append(" · ".join([
         f"[{pick(lang, 'Not migratable', 'Non migrabili')} ({c['non_native']})](#{base}-non-migratable)",
         f"[{pick(lang, 'To adapt', 'Da adattare')} ({c['workaround']})](#{base}-to-adapt)",
@@ -284,6 +284,9 @@ def _inventory(a: DashboardAssessment, lang: str) -> List[str]:
     md += collapsible(f"{t('metric.data_functions', lang)} ({c['data_functions']})", table_md(
         [t("hdr.name", lang), t("hdr.language", lang), pick(lang, "Lines", "Righe")],
         [[d.name, d.language, d.lines] for d in a.result.data_functions], lang))
+    md += collapsible(f"{t('metric.custom_queries', lang)} ({len(a.queries)})", table_md(
+        [t("hdr.name", lang), pick(lang, "Difficulty", "Difficoltà"), pick(lang, "Score", "Punteggio")],
+        [[q.name, t(f"qlevel.{q.level}", lang), q.score] for q in a.queries], lang))
     md += collapsible(f"{pick(lang, 'Effort estimate', 'Stima effort')} ({round_num(a.effort.likely_days)} {t('generic.person_days', lang)})", table_md(
         [pick(lang, "Item", "Voce"), pick(lang, "Quantity", "Quantità"), t("generic.person_days", lang)],
         [[effort_label(k, lang), q, round_num(d)] for k, q, d in a.effort.breakdown]
@@ -310,12 +313,16 @@ def _how_to_read(lang: str, model: ComplexityModel) -> List[str]:
         pick(lang,
              "The complexity index (0-100) is a weighted blend of five normalized dimensions "
              "(breadth, data model, custom code, interactivity and migration gap), so no single "
-             "factor can dominate. The effort is an itemized estimate in person-days with a "
-             "min-likely-max band.",
+             "factor can dominate. The effort (person-days, min-likely-max) is a parametric formula "
+             "with diminishing returns; custom queries are classified as easy/medium/complex, and "
+             "each complex query adds a linear cost because the underlying semantic model must be "
+             "decomposed.",
              "L'indice di complessità (0-100) combina in modo pesato cinque dimensioni normalizzate "
              "(ampiezza, modello dati, codice personalizzato, interattività e distanza dalla migrazione), "
-             "così nessun singolo fattore può dominare. L'effort è una stima per voci in giorni/persona "
-             "con una banda minimo-atteso-massimo."),
+             "così nessun singolo fattore può dominare. L'effort (giorni/persona, minimo-atteso-massimo) "
+             "è una formula parametrica con rendimenti decrescenti; le query personalizzate sono "
+             "classificate in facili/medie/complesse e ogni query complessa aggiunge un costo lineare, "
+             "perché il modello semantico sottostante va scomposto."),
         "",
         pick(lang, f"Levels: {scale}.", f"Livelli: {scale}."),
         "",

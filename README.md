@@ -92,52 +92,60 @@ weights into a **0–100 index**:
 | Dimension       | What it captures                                         | Weight |
 |-----------------|----------------------------------------------------------|--------|
 | Breadth / size  | pages, total visuals, text areas                         | 0.15   |
-| Data model      | source tables, custom queries, calculated columns, data functions | 0.20   |
+| Data model      | source tables, custom queries (weighted by difficulty), calculated columns, data functions | 0.20   |
 | Custom code     | IronPython/JavaScript scripts and their lines            | 0.25   |
 | Interactivity   | text-area controls, user properties, workaround visuals  | 0.15   |
 | Migration gap   | non-native features/visuals, workarounds, reworked columns | 0.25 |
 
 Levels: `Low ≤ 25`, `Medium ≤ 50`, `High ≤ 75`, `Very high > 75`.
 
-### Effort estimate (two interchangeable models)
+### Effort estimate (parametric)
 
-The effort is returned in person-days with a min/likely/max band. Two models are
-available, selectable via `effort_model` (or the CLI `--effort-model`):
+The effort is returned in person-days with a min/likely/max band, from a single
+parametric formula with diminishing returns:
 
-- **`itemized`** (default) — bottom-up sum of per-feature costs; produces a full
-  breakdown table. Configured by `EffortConfig`.
-- **`parametric`** — top-down formula with diminishing returns, configured by
-  `ParametricEffortConfig`:
-
-  ```
-  effort = base + score_coeff · index + Σ coeff_i · ln(1 + n_i)
-  ```
-
-  where `n_i` are drivers such as scripts, queries, data functions and
-  non-native features. `ln` (natural log) means the 10th script costs less than
-  the 1st. Defaults: `base=0.5`, `score_coeff=0.05`, and coefficients
-  `scripts=0.5, queries=0.7, data_functions=0.9, non_native_features=1.2`.
-
-Every coefficient (both models) is overridable:
-
-```python
-from dxp_analyzer_doc import ComplexityModel, ParametricEffortConfig, EffortConfig, assess
-
-# tune the itemized model
-model = ComplexityModel(effort=EffortConfig(per_data_function=5.0))
-
-# or switch to the parametric formula
-model = ComplexityModel(
-    effort_model="parametric",
-    parametric_effort=ParametricEffortConfig(score_coeff=0.06, log_coeffs={"scripts": 0.5, "queries": 0.7, "data_functions": 1.0}),
-)
-a = assess("dashboard.dxp", model=model)
+```
+effort = base + score_coeff · index
+       + Σ coeff_i · ln(1 + n_i)            # generic drivers (scripts, data functions, non-native features, …)
+       + q_easy · ln(1 + n_easy)            # easy custom queries (diminishing)
+       + q_medium · ln(1 + n_medium)        # medium custom queries (diminishing)
+       + q_complex · n_complex              # complex custom queries (linear)
 ```
 
-From the CLI, compare the two on real dashboards:
+`ln` (natural log) means the 10th script costs less than the 1st. **Custom
+queries are classified** as *easy / medium / complex* (see below), and every
+**complex** query adds a linear cost, because a complex query implies the
+underlying semantic model has to be decomposed. Defaults: `base=0.5`,
+`score_coeff=0.05`, `scripts=0.5, data_functions=0.9, non_native_features=1.2`,
+`q_easy=0.4, q_medium=0.8, q_complex=1.5`.
 
-```bash
-dxp-analyzer-doc document ./dashboards --effort-model parametric
+Every coefficient is overridable:
+
+```python
+from dxp_analyzer_doc import ComplexityModel, ParametricEffortConfig, assess
+
+model = ComplexityModel(parametric_effort=ParametricEffortConfig(
+    score_coeff=0.06, query_complex_coeff=2.0,
+    log_coeffs={"scripts": 0.5, "data_functions": 1.0, "non_native_features": 1.2},
+))
+a = assess("dashboard.dxp", model=model)
+print(a.effort.min_days, a.effort.likely_days, a.effort.max_days)
+```
+
+### Custom query classification
+
+Each custom query behind the data model is scored (dependency-free SQL
+heuristics: joins, subqueries, CTEs, window functions, conditions, group-by,
+aggregations, length, …) and bucketed into **easy / medium / complex**. The
+level drives both the effort (above) and the `data_model` dimension of the
+index. Thresholds and weights live in `QueryComplexityConfig`:
+
+```python
+from dxp_analyzer_doc import ComplexityModel, QueryComplexityConfig
+from dxp_analyzer_doc.migration import classify_query
+
+level, score, metrics = classify_query("SELECT a FROM t JOIN u ON t.id = u.id")
+model = ComplexityModel(query_config=QueryComplexityConfig(easy_max=2, medium_max=6))
 ```
 
 ## Migration rules
@@ -155,10 +163,11 @@ src/dxp_analyzer_doc/
   export.py          # xlsx/csv tables + extracted files
   i18n.py            # en/it string catalog
   migration/
-    rules.py         # bilingual Spotfire -> Power BI rules
-    complexity.py    # normalized index + effort model
-    assessment.py    # DashboardAssessment
-    report.py        # Markdown migration document
+    rules.py            # bilingual Spotfire -> Power BI rules
+    complexity.py       # normalized index + parametric effort model
+    query_complexity.py # SQL custom-query difficulty classifier
+    assessment.py       # DashboardAssessment
+    report.py           # Markdown migration document
   cli.py             # dxp-analyzer-doc command
 legacy/              # original standalone scripts (reference only)
 tests/               # pytest suite + synthetic .dxp

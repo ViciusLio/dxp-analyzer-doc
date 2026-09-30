@@ -110,7 +110,7 @@ def _cmd_analyze(args) -> int:
 
 def _cmd_document(args) -> int:
     lang = normalize_lang(args.lang)
-    model = ComplexityModel(effort_model=getattr(args, "effort_model", "itemized"))
+    model = ComplexityModel()
     assessments = []
     for path in _iter_dxp(args.files):
         if not path.exists():
@@ -141,8 +141,7 @@ def _cmd_document(args) -> int:
 def _cmd_all(args) -> int:
     rc = _cmd_analyze(args)
     out_dir = _resolve_out_dir(args.output, _base_dir(args.files))
-    doc_args = argparse.Namespace(files=args.files, output=str(out_dir / "migration_documentation.md"),
-                                  lang=args.lang, effort_model=getattr(args, "effort_model", "itemized"))
+    doc_args = argparse.Namespace(files=args.files, output=str(out_dir / "migration_documentation.md"), lang=args.lang)
     rc = _cmd_document(doc_args) or rc
     return rc
 
@@ -170,8 +169,6 @@ def build_parser() -> argparse.ArgumentParser:
     p_doc.add_argument("files", nargs="+", help=".dxp files, globs or directories")
     p_doc.add_argument("-o", "--output", default=None, help="output .md file or directory (default: <input folder>/migration_documentation.md)")
     p_doc.add_argument("--lang", **common_lang)
-    p_doc.add_argument("--effort-model", choices=["itemized", "parametric"], default="itemized",
-                       help="effort estimate model (default: itemized)")
     p_doc.set_defaults(func=_cmd_document)
 
     p_all = sub.add_parser("all", help="run analyze + document")
@@ -179,8 +176,6 @@ def build_parser() -> argparse.ArgumentParser:
     p_all.add_argument("-o", "--output", default=None, help="output directory (default: <input folder>/dxp-output)")
     p_all.add_argument("--lang", **common_lang)
     p_all.add_argument("--extract-archive", action="store_true", help="also extract the full .dxp archive")
-    p_all.add_argument("--effort-model", choices=["itemized", "parametric"], default="itemized",
-                       help="effort estimate model (default: itemized)")
     p_all.set_defaults(func=_cmd_all)
 
     return parser

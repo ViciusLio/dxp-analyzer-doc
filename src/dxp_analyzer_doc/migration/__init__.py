@@ -7,11 +7,11 @@ from .complexity import (
     ComplexityConfig,
     ComplexityModel,
     ComplexityScore,
-    EffortConfig,
     EffortEstimate,
     Features,
     ParametricEffortConfig,
 )
+from .query_complexity import QueryComplexityConfig, classify_query
 from .report import build_report
 
 __all__ = [
@@ -19,8 +19,9 @@ __all__ = [
     "ComplexityModel",
     "ComplexityScore",
     "ComplexityConfig",
-    "EffortConfig",
     "ParametricEffortConfig",
+    "QueryComplexityConfig",
+    "classify_query",
     "EffortEstimate",
     "Features",
     "build_report",

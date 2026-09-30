@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "dxp-analyzer-doc"
-version = "0.1.0"
+version = "0.2.0"
 description = "Analyze TIBCO Spotfire .dxp dashboards and assess migration to Power BI"
 readme = "README.md"
 requires-python = ">=3.9"

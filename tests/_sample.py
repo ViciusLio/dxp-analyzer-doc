@@ -68,6 +68,7 @@ ANALYSIS_DOCUMENT = f"""<?xml version="1.0" encoding="utf-8"?>
           </Object>
         </Elements>
       </Field>
+      <Field Name="CustomQuery"><String>SELECT a.id, SUM(b.v) FROM a JOIN b ON a.id=b.id JOIN c ON c.id=a.id WHERE a.x > 1 AND b.y = 2 GROUP BY a.id</String></Field>
       <Field Name="Script"><String Id="script1">{SCRIPT}</String></Field>
     </Fields>
   </Object>

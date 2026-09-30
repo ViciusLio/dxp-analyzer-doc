@@ -8,12 +8,19 @@ model instead:
    dimension can explode the result;
 3. combines them with configurable weights into a **0-100 complexity index**;
 4. derives a **migration effort** estimate (person-days, min / likely / max) from
-   one of two interchangeable models: an ``itemized`` per-feature cost model
-   (default) or a ``parametric`` formula with diminishing returns.
+   a single **parametric** formula with diminishing returns:
 
-Every coefficient lives in :class:`ComplexityConfig`, :class:`EffortConfig` or
-:class:`ParametricEffortConfig` and can be overridden, so the model is tunable
-without touching the logic.
+   ``effort = base + score_coeff * index + Σ coeff_i * ln(1 + n_i) + query terms``
+
+Custom queries are classified (easy / medium / complex) and weighted separately:
+easy and medium contribute with diminishing returns (``ln``), while every
+**complex** query adds a roughly linear cost, because a complex query means the
+underlying semantic model has to be decomposed. Query difficulty also feeds the
+``data_model`` dimension of the index.
+
+Every coefficient lives in :class:`ComplexityConfig`, :class:`ParametricEffortConfig`
+or :class:`~dxp_analyzer_doc.migration.query_complexity.QueryComplexityConfig` and
+can be overridden, so the model is tunable without touching the logic.
 """
 
 from __future__ import annotations
@@ -21,6 +28,8 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass, field
 from typing import Dict, List, Tuple
+
+from .query_complexity import QueryComplexityConfig
 
 # Complexity level machine keys (localized via i18n "level.*").
 LEVEL_LOW = "low"
@@ -52,7 +61,10 @@ class Features:
     javascript_scripts: int = 0
     javascript_lines: int = 0
     data_functions: int = 0
-    custom_queries: int = 0
+    # Custom queries split by classified difficulty (see query_complexity).
+    queries_easy: int = 0
+    queries_medium: int = 0
+    queries_complex: int = 0
     source_tables: int = 0
     calculated_columns: int = 0
     adapted_columns: int = 0
@@ -66,6 +78,10 @@ class Features:
     @property
     def total_script_lines(self) -> int:
         return self.ironpython_lines + self.javascript_lines
+
+    @property
+    def custom_queries(self) -> int:
+        return self.queries_easy + self.queries_medium + self.queries_complex
 
 
 @dataclass
@@ -87,6 +103,12 @@ class ComplexityConfig:
         "interactivity": 6.0,
         "migration_gap": 5.0,
     })
+    # Query difficulty weights feeding the data_model dimension.
+    query_load_weights: Dict[str, float] = field(default_factory=lambda: {
+        "easy": 1.0,
+        "medium": 1.5,
+        "complex": 2.5,
+    })
     # Level thresholds on the 0-100 index (upper bound inclusive).
     thresholds: List[Tuple[float, str]] = field(default_factory=lambda: [
         (25.0, LEVEL_LOW),
@@ -98,7 +120,11 @@ class ComplexityConfig:
         return f.pages * 1.0 + f.total_visuals * 0.25 + f.text_areas * 0.5
 
     def load_data_model(self, f: Features) -> float:
-        return f.source_tables * 1.0 + f.custom_queries * 1.5 + f.calculated_columns * 0.4 + f.data_functions * 2.0
+        qw = self.query_load_weights
+        query_load = (f.queries_easy * qw.get("easy", 1.0)
+                      + f.queries_medium * qw.get("medium", 1.5)
+                      + f.queries_complex * qw.get("complex", 2.5))
+        return f.source_tables * 1.0 + query_load + f.calculated_columns * 0.4 + f.data_functions * 2.0
 
     def load_custom_code(self, f: Features) -> float:
         return f.ironpython_scripts * 1.0 + f.javascript_scripts * 1.2 + f.total_script_lines / 80.0
@@ -112,59 +138,32 @@ class ComplexityConfig:
 
 
 @dataclass
-class EffortConfig:
-    """Per-feature cost model for the effort estimate (person-days)."""
-
-    setup: float = 2.0                    # base project setup (model, theme, publish)
-    per_page: float = 0.5
-    per_native_visual: float = 0.1
-    per_workaround_visual: float = 0.4
-    per_non_native_visual: float = 0.8
-    per_text_area: float = 0.5
-    per_text_area_control: float = 0.2
-    per_user_property: float = 0.15
-    per_script_base: float = 0.5          # per script, plus a line-based term
-    per_script_100_lines: float = 0.5     # extra days per 100 lines of script
-    script_line_cap: float = 3.0          # cap of the line-based term per script
-    per_data_function: float = 3.0
-    per_query: float = 0.5
-    per_source_table: float = 0.3
-    per_calculated_column: float = 0.15
-    per_adapted_column: float = 0.4       # extra on top for columns needing rework
-    per_workaround_feature: float = 0.5
-    per_non_native_feature: float = 1.5
-    # Uncertainty band around the "likely" estimate.
-    low_factor: float = 0.8
-    high_factor: float = 1.6
-    round_to: float = 0.5
-
-
-# Effort model machine keys.
-EFFORT_ITEMIZED = "itemized"
-EFFORT_PARAMETRIC = "parametric"
-
-
-@dataclass
 class ParametricEffortConfig:
-    """Top-down parametric effort model (person-days).
+    """Parametric effort model (person-days).
 
-    ``effort = base + score_coeff * index + Σ coeff_i * ln(1 + n_i)``
+    ``effort = base + score_coeff * index
+               + Σ coeff_i * ln(1 + n_i)                 # generic drivers
+               + q_easy * ln(1 + n_easy)                 # easy queries (diminishing)
+               + q_medium * ln(1 + n_medium)             # medium queries (diminishing)
+               + q_complex * n_complex``                 # complex queries (linear)
 
-    The ``ln`` (natural log) gives diminishing returns: the 10th script costs
-    less than the 1st. ``log_coeffs`` maps a driver name to its coefficient; a
-    driver with coefficient 0 (or absent) is ignored. Driver names must be keys
-    of :meth:`ComplexityModel._effort_drivers`.
+    ``ln`` (natural log) gives diminishing returns. Complex queries are linear on
+    purpose: each one implies decomposing the underlying semantic model, a cost
+    that does not amortize. ``log_coeffs`` maps a generic driver name (a key of
+    :meth:`ComplexityModel._effort_drivers`) to its coefficient; 0 disables it.
     """
 
     base: float = 0.5
     score_coeff: float = 0.05
     log_coeffs: Dict[str, float] = field(default_factory=lambda: {
         "scripts": 0.5,
-        "queries": 0.7,
         "data_functions": 0.9,
         "non_native_features": 1.2,
         "pages": 0.0,
     })
+    query_easy_coeff: float = 0.4       # log term
+    query_medium_coeff: float = 0.8     # log term
+    query_complex_coeff: float = 1.5    # linear term (per complex query)
     low_factor: float = 0.8
     high_factor: float = 1.6
     round_to: float = 0.5
@@ -187,24 +186,27 @@ class EffortEstimate:
 
 
 class ComplexityModel:
-    """Compute the complexity index and effort estimate for a set of features.
+    """Compute the complexity index and (parametric) effort for a set of features.
 
-    Two interchangeable effort models are available (``effort_model``):
-
-    - ``"itemized"`` (default): bottom-up sum of per-feature costs; yields a full
-      breakdown table. Configured by :class:`EffortConfig`.
-    - ``"parametric"``: top-down formula ``base + a*index + Σ c_i*ln(1+n_i)`` with
-      diminishing returns. Configured by :class:`ParametricEffortConfig`.
+    Query classification thresholds live in ``query_config`` and are used by the
+    assessment layer via :meth:`classify_query`.
     """
 
-    def __init__(self, complexity: ComplexityConfig | None = None, effort: EffortConfig | None = None,
-                 parametric_effort: ParametricEffortConfig | None = None, effort_model: str = EFFORT_ITEMIZED):
+    def __init__(self, complexity: ComplexityConfig | None = None,
+                 parametric_effort: ParametricEffortConfig | None = None,
+                 query_config: QueryComplexityConfig | None = None):
         self.complexity = complexity or ComplexityConfig()
-        self.effort = effort or EffortConfig()
         self.parametric_effort = parametric_effort or ParametricEffortConfig()
-        self.effort_model = effort_model
+        self.query_config = query_config or QueryComplexityConfig()
 
-    # -- complexity -------------------------------------------------------------
+    # -- query classification ---------------------------------------------------
+
+    def classify_query(self, sql: str):
+        """Return ``(level, score, metrics)`` for a SQL query."""
+        from .query_complexity import classify_query
+        return classify_query(sql, self.query_config)
+
+    # -- complexity index -------------------------------------------------------
 
     def level(self, index: float) -> str:
         for threshold, name in self.complexity.thresholds:
@@ -236,15 +238,11 @@ class ComplexityModel:
         step = step or 0.5
         return round(round(value / step) * step, 2)
 
-    def _round(self, value: float) -> float:
-        return self._round_step(value, self.effort.round_to)
-
     @staticmethod
     def _effort_drivers(f: Features) -> Dict[str, int]:
-        """Named counts the effort models can reference."""
+        """Named counts the effort formula can reference (generic drivers only)."""
         return {
             "scripts": f.ironpython_scripts + f.javascript_scripts,
-            "queries": f.custom_queries,
             "data_functions": f.data_functions,
             "non_native_features": f.non_native_features,
             "workaround_features": f.workaround_features,
@@ -254,11 +252,6 @@ class ComplexityModel:
         }
 
     def effort_estimate(self, f: Features) -> EffortEstimate:
-        if self.effort_model == EFFORT_PARAMETRIC:
-            return self._effort_parametric(f)
-        return self._effort_itemized(f)
-
-    def _effort_parametric(self, f: Features) -> EffortEstimate:
         cfg = self.parametric_effort
         index = self.score(f).index
         drivers = self._effort_drivers(f)
@@ -271,6 +264,11 @@ class ComplexityModel:
                 continue
             n = drivers.get(key, 0)
             contributions.append((key, n, coeff * math.log1p(n)))
+        # custom queries by difficulty: easy/medium with diminishing returns,
+        # complex linear (each complex query means decomposing the semantic model).
+        contributions.append(("queries_easy", f.queries_easy, cfg.query_easy_coeff * math.log1p(f.queries_easy)))
+        contributions.append(("queries_medium", f.queries_medium, cfg.query_medium_coeff * math.log1p(f.queries_medium)))
+        contributions.append(("queries_complex", f.queries_complex, cfg.query_complex_coeff * f.queries_complex))
         likely = sum(c for _, _, c in contributions)
         breakdown = [(k, q, round(c, 2)) for k, q, c in contributions if c > 0 or k == "base"]
         return EffortEstimate(
@@ -278,39 +276,4 @@ class ComplexityModel:
             likely_days=self._round_step(likely, cfg.round_to),
             max_days=self._round_step(likely * cfg.high_factor, cfg.round_to),
             breakdown=breakdown,
-        )
-
-    def _effort_itemized(self, f: Features) -> EffortEstimate:
-        e = self.effort
-        script_count = f.ironpython_scripts + f.javascript_scripts
-        script_lines = f.total_script_lines
-        script_days = script_count * e.per_script_base + min(
-            script_count * e.script_line_cap,
-            script_lines / 100.0 * e.per_script_100_lines,
-        )
-        items: List[Tuple[str, float, float]] = [
-            ("setup", 1, e.setup),
-            ("pages", f.pages, f.pages * e.per_page),
-            ("visuals_native", f.native_visuals, f.native_visuals * e.per_native_visual),
-            ("visuals_workaround", f.workaround_visuals, f.workaround_visuals * e.per_workaround_visual),
-            ("visuals_non_native", f.non_native_visuals, f.non_native_visuals * e.per_non_native_visual),
-            ("text_areas", f.text_areas, f.text_areas * e.per_text_area),
-            ("text_area_controls", f.text_area_controls, f.text_area_controls * e.per_text_area_control),
-            ("user_properties", f.user_properties, f.user_properties * e.per_user_property),
-            ("scripts", script_count, script_days),
-            ("data_functions", f.data_functions, f.data_functions * e.per_data_function),
-            ("queries", f.custom_queries, f.custom_queries * e.per_query),
-            ("source_tables", f.source_tables, f.source_tables * e.per_source_table),
-            ("calculated_columns", f.calculated_columns, f.calculated_columns * e.per_calculated_column),
-            ("adapted_columns", f.adapted_columns, f.adapted_columns * e.per_adapted_column),
-            ("workaround_features", f.workaround_features, f.workaround_features * e.per_workaround_feature),
-            ("non_native_features", f.non_native_features, f.non_native_features * e.per_non_native_feature),
-        ]
-        items = [(key, qty, self._round(days)) for key, qty, days in items if days > 0 or key == "setup"]
-        likely = sum(days for _, _, days in items)
-        return EffortEstimate(
-            min_days=self._round(likely * e.low_factor),
-            likely_days=self._round(likely),
-            max_days=self._round(likely * e.high_factor),
-            breakdown=items,
         )
